@@ -1,0 +1,6 @@
+data/dataRGBD
+**/__pycache__
+report/*
+!report/*.tex
+!report/*.pdf
+!report/*.tex

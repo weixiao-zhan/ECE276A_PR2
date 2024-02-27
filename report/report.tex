@@ -1,0 +1,77 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{subcaption}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+
+\title{ECE276A PR2 Report}
+
+\author{
+\IEEEauthorblockN{1\textsuperscript{st} Weixiao Zhan}
+\IEEEauthorblockA{
+    weixiao-zhan[at]ucsd[dot]edu}
+}
+
+\maketitle
+
+
+\section{Introduction}
+In this project, I implemented Simultaneous Localization and Mapping (SLAM) 
+on a differential-drive robot 
+equipped with a wheel encoder, an Inertial Measurement Unit (IMU), 
+2-D LiDAR, and an RGBD camera.
+
+Initially, I constructed a motion model trajectory 
+based on the kinematics of the differential-drive and 
+utilizing data from the wheel encoder and IMU. 
+Concurrently, I constructed an observation model trajectory 
+using LiDAR scans through the Iterative Closest Points (ICP) method. 
+Following this, I applied a Factor Graph and loop closure techniques to 
+refine and optimize the trajectory. 
+Finally, I leveraged the optimized trajectory to 
+generate occupancy and texture maps of the environment.
+
+\section{Problem Formulation}
+
+In this project, there is a mixture of 2d and 3d data and algorithm. 
+The robot state at time stamp t are denote in 2d and 3d slightly differently
+
+$O_t = \left[ \right]$
+
+\subsection{Motion Model: IMU \& Differential-drive Kinematics}
+
+
+\subsection{Observation Model: LiDAR \& ICP}
+
+\subsection{Factor Graph and Loop Closure}
+
+\subsection{Mapping}
+\subsubsection{Occupancy}
+
+\subsubsection{Texture}
+
+
+\section{Technical Approach}
+[25 pts] Technical Approach: Describe your technical approach to SLAM and texture mapping.
+\subsection{Time Stamp}
+
+
+\section{Results}
+[15 pts] Results: Present your results, and discuss them – what worked, what did not, and why.
+Analyze the impact of loop closure detection and pose graph optimization on the accuracy of the robot
+trajectory estimate and the resulting map quality. Make sure your results include (a) images of the
+trajectory and occupancy grid map over time constructed by your SLAM algorithm and (b) textured
+maps over time. If you have videos, include them in your submission zip file and refer to them in your
+report.
+
+
+\end{document}
