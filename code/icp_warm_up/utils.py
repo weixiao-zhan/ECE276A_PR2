@@ -136,3 +136,45 @@ def o3d_icp(source_PC, target_PC, trans_init = np.eye(4), threshold = 5):
     # print(reg_p2p.transformation)
     # Extract the translation from the transformation matrix
     return reg_p2p.transformation
+
+def o3d_fpfh(source_PC, target_PC, trans_init=np.eye(4)):
+    # Voxel downsampling for both point clouds
+    voxel_size = 0.1  # You can adjust this value
+    source_down = source_PC.voxel_down_sample(voxel_size)
+    target_down = target_PC.voxel_down_sample(voxel_size)
+    
+    # Estimate normals
+    radius_normal = voxel_size * 2
+    source_down.estimate_normals(
+        o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=30))
+    target_down.estimate_normals(
+        o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=30))
+    
+    # Compute FPFH features
+    radius_feature = voxel_size * 5
+    source_fpfh = o3d.pipelines.registration.compute_fpfh_feature(
+        source_down,
+        o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=100))
+    target_fpfh = o3d.pipelines.registration.compute_fpfh_feature(
+        target_down,
+        o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=100))
+    
+    # RANSAC registration
+    distance_threshold = voxel_size * 1.5
+    result = o3d.pipelines.registration.registration_ransac_based_on_feature_matching(
+        source_down, target_down, source_fpfh, target_fpfh, True,
+        distance_threshold,
+        o3d.pipelines.registration.TransformationEstimationPointToPoint(False), 4, 
+        [o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(0.9),
+         o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(distance_threshold)],
+        o3d.pipelines.registration.RANSACConvergenceCriteria(4000000, 500))
+    
+    # Initial transformation
+    result.transformation = np.dot(result.transformation, trans_init)
+    
+    # You may want to refine the alignment further using ICP
+    # result_icp = o3d.pipelines.registration.registration_icp(
+    #     source_down, target_down, distance_threshold, result.transformation,
+    #     o3d.pipelines.registration.TransformationEstimationPointToPoint())
+    
+    return result.transformation  # or result_icp.transformation for ICP refinement

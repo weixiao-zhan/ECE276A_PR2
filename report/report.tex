@@ -8,6 +8,7 @@
 \usepackage{textcomp}
 \usepackage{xcolor}
 \usepackage{subcaption}
+\usepackage{extarrows}
 
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
@@ -42,20 +43,78 @@ generate occupancy and texture maps of the environment.
 
 \section{Problem Formulation}
 
-In this project, there is a mixture of 2d and 3d data and algorithm. 
-The robot state at time stamp t are denote in 2d and 3d slightly differently
+In this project, the pose of the robot can be represented in both 2d and 3d (with $z = 0$).
+Denote the robot pose at time stamp $t$ as $P_t$:
+$$
+P_{t} = \begin{cases}
+    \xlongequal{2D} \left[ \begin{gathered}x\\ y\\ \theta \end{gathered} \right] & \in \mathbb{R}^{3} \\ 
+    \xlongequal{3D} \left[ \begin{matrix}R_{yaw}(\theta )&\left[ \begin{gathered}x\\ y\end{gathered} \right]  \\ 0&1\end{matrix} \right] & \in \mathbb{R}^{[4\times 4]}
+\end{cases} 
+$$
+The 2d and 3d representation are interchangeable.
+The world frame is defined as robot frame at time 0, i.e.
+$$P_{0}=\begin{cases}\vec{0}_{3}\\ I_{4}\end{cases} $$
 
-$O_t = \left[ \right]$
 
 \subsection{Motion Model: IMU \& Differential-drive Kinematics}
+For the small time interval $\tau$ between two time stamp, 
+the motion of robot can be approximate as a arc:
+$$
+\begin{aligned}
+    P_{t+1}^{(M)}
+    &=P_{t}^{(M)} +\tau \left[ \begin{gathered}v_{t}\mathrm{sinc} \left( \frac{w_{t}\tau }{2} \right)  \cos \left( \theta_{t} +\frac{w_{t}\tau }{2} \right)  \\ v_{t}\mathrm{sinc} \left( \frac{w_{t}\tau }{2} \right)  \sin \left( \theta_{t} +\frac{w_{t}\tau }{2} \right)  \\ w_{t}\end{gathered} \right]  \\
+    &=P_{t}^{(M)} +\left[ \begin{gathered}\delta d\cdot \mathrm{sinc} \left( \frac{\delta \theta }{2} \right)  \sin \left( \theta_{t} +\frac{\delta \theta }{2} \right)  \\ \delta d\cdot \mathrm{sinc} \left( \frac{\delta \theta }{2} \right)  \sin \left( \theta_{t} +\frac{\delta \theta }{2} \right)  \\ \delta \theta \end{gathered} \right]
+\end{aligned} 
+$$
+in which, the superscript $^{(M)}$ means this is the motion model trajectory,
+$\delta d$ is inferred from wheel encoder, and $\delta \theta$ is inferred from IMU's yaw reading.
 
 
 \subsection{Observation Model: LiDAR \& ICP}
+The ICP algorithm can estimate relative transformation between 
+source point cloud $S$ and target point cloud $T$.
+It achieved this by iterates over these steps:
+\begin{enumerate}
+    \item Find data association for all source points using closest points:
+    $$ \Delta = \left\{\left(s, \arg\min_{t\in T} \|s - t\| \right) | \forall s\in S\right\}$$
+
+    \item Estimate relative transformation $_tT_s$ using Kabsch algorithm:
+    $$_tT_s = \arg\min_T \sum\limits_{(s,t)\in\Delta} \|t - Ts\|$$
+
+    \item Update $S \leftarrow {}_tT_s S$ and repeat step 1 until no improvement.
+\end{enumerate}
+
+
+One 2d-LiDAR scan can be represented as a set of range and angle tuple $L = \{(r_i, \phi_i)\}$,
+and converted to a set of point cloud in body frame:
+$$
+\begin{aligned}
+    \mathrm{PC}_{\text{LiDAR frame}} 
+        &= \left\{ \left[ \begin{gathered}r_i\sin \phi_i \\ r_i\cos \phi_i \\ 0\end{gathered} \right] | \forall (r_i, \phi_i)\in L\right\} 
+        \\
+    \left[ \begin{gathered} \mathrm{PC} \\ 1\end{gathered} \right]  
+    &= _{\text{body}}T_{\text{LidAR}}  \left[ \begin{gathered} \mathrm{PC}_{\text{LidAR frame}}  \\ 1\end{gathered} \right]  
+\end{aligned}
+$$
+
+Leveraging ICP, I can estimate relative transformation between two LiDAR scan and
+compose observation model trajectory:
+$$
+\begin{aligned}
+    _{t}T^{(O)}_{t+1}
+        &=\text{ICP}(S=\mathrm{PC}_{t+1}, T=\mathrm{PC}_{t}) \\ 
+    P^{(O)}_{t}
+        &=P_{0}\prod^{t}_{f=1} {}_{f-1} T^{(O)}_{f}
+\end{aligned} 
+$$
+in which, the superscript $^{(O)}$ means this is the observation trajectory.
 
 \subsection{Factor Graph and Loop Closure}
 
 \subsection{Mapping}
+
 \subsubsection{Occupancy}
+
 
 \subsubsection{Texture}
 
