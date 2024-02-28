@@ -1,5 +1,6 @@
 data/dataRGBD
 **/__pycache__
+**.DS_Store
 report/*
 !report/*.tex
 !report/*.pdf
