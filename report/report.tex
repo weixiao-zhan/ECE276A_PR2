@@ -26,56 +26,63 @@
 
 
 \section{Introduction}
-In this project, I implemented Simultaneous Localization and Mapping (SLAM) 
-on a differential-drive robot 
-equipped with a wheel encoder, an Inertial Measurement Unit (IMU), 
-2-D LiDAR, and an RGBD camera.
+Simultaneous Localization and Mapping (SLAM) is pivotal in robotics, 
+enabling autonomous systems to understand their surroundings and their locations 
+with minimal human intervention. 
+In this project, I implemented SLAM on a differential-drive robot equipped with a wheel encoder, 
+an Inertial Measurement Unit (IMU), 2-D LiDAR, and an RGBD camera, 
+and reconstructed detailed 2D occupancy map, 2D floor texture map, and 3D texture map.
 
-Initially, I constructed a motion model trajectory 
-based on the kinematics of the differential-drive and 
+The process began with the construction of a motion model trajectory based on 
+the differential-drive kinematics, 
 utilizing data from the wheel encoder and IMU. 
-Concurrently, I constructed an observation model trajectory 
-using LiDAR scans through the Iterative Closest Points (ICP) method. 
-Following this, I applied a Factor Graph and loop closure techniques to 
+Concurrently, an observation model trajectory was estimated using LiDAR scans 
+and the Iterative Closest Points (ICP) method. 
+Subsequently, I applied a Factor Graph and loop closure techniques to 
 refine and optimize the trajectory. 
-Finally, I leveraged the optimized trajectory to 
-generate occupancy and texture maps of the environment.
+Lastly, I leveraged the optimized trajectory to generate 
+detailed maps, showcasing the potential.
+
 
 \section{Problem Formulation}
 
-In this project, the pose of the robot can be represented in both 2d and 3d (with $z = 0$).
-Denote the robot pose at time stamp $t$ as $P_t$:
+In this project, the robot trajectory, discretized as a set of pose and time stamp tuples, is the core of all computation.
+Denote the robot's pose at given time stamp \(t\) as \(P_t\).
+The pose can be represented in both two-dimensional (2D) and three-dimensional (3D) spaces, 
+with the z-axis value fixed at zero. 
 $$
 P_{t} = \begin{cases}
     \xlongequal{2D} \left[ \begin{gathered}x\\ y\\ \theta \end{gathered} \right] & \in \mathbb{R}^{3} \\ 
-    \xlongequal{3D} \left[ \begin{matrix}R_{yaw}(\theta )&\left[ \begin{gathered}x\\ y\end{gathered} \right]  \\ 0&1\end{matrix} \right] & \in \mathbb{R}^{[4\times 4]}
+    \xlongequal{3D} \left[ \begin{matrix}R_{yaw}(\theta )&\left[ \begin{gathered}x\\ y\\0\end{gathered} \right]  \\ \mathbf{0}&1\end{matrix} \right] & \in \mathbb{R}^{[4\times 4]}
 \end{cases} 
 $$
-The 2d and 3d representation are interchangeable.
-The world frame is defined as robot frame at time 0, i.e.
+This dual representation enables seamless transition between 2D and 3D spatial analyses.
+The initial pose $P_0$ at time 0 is defined as the origin of the world frame
+serving as the reference for all subsequent poses.
 $$P_{0}=\begin{cases}\vec{0}_{3}\\ I_{4}\end{cases} $$
 
 
 \subsection{Motion Model: IMU \& Differential-drive Kinematics}
-For the small time interval $\tau$ between two time stamp, 
+Consider a small time interval $\tau$ between two time stamp $t$ and $t+1$.
+Suppose wheel encoder reported $\delta d$
+and IMU's yaw reading reproted $\delta \theta$ during this interval,
 the motion of robot can be approximate as a arc:
 $$
 \begin{aligned}
-    P_{t+1}^{(M)}
-    &=P_{t}^{(M)} +\tau \left[ \begin{gathered}v_{t}\mathrm{sinc} \left( \frac{w_{t}\tau }{2} \right)  \cos \left( \theta_{t} +\frac{w_{t}\tau }{2} \right)  \\ v_{t}\mathrm{sinc} \left( \frac{w_{t}\tau }{2} \right)  \sin \left( \theta_{t} +\frac{w_{t}\tau }{2} \right)  \\ w_{t}\end{gathered} \right]  \\
-    &=P_{t}^{(M)} +\left[ \begin{gathered}\delta d\cdot \mathrm{sinc} \left( \frac{\delta \theta }{2} \right)  \sin \left( \theta_{t} +\frac{\delta \theta }{2} \right)  \\ \delta d\cdot \mathrm{sinc} \left( \frac{\delta \theta }{2} \right)  \sin \left( \theta_{t} +\frac{\delta \theta }{2} \right)  \\ \delta \theta \end{gathered} \right]
+    P_{t+1}^{(2M)}
+    % &=P_{t}^{(2M)} +\tau \left[ \begin{gathered}v_{t}\mathrm{sinc} \left( \frac{w_{t}\tau }{2} \right)  \cos \left( \theta_{t} +\frac{w_{t}\tau }{2} \right)  \\ v_{t}\mathrm{sinc} \left( \frac{w_{t}\tau }{2} \right)  \sin \left( \theta_{t} +\frac{w_{t}\tau }{2} \right)  \\ w_{t}\end{gathered} \right]  \\
+    &=P_{t}^{(2M)} +\left[ \begin{gathered}\delta d\cdot \mathrm{sinc} \left( \frac{\delta \theta }{2} \right)  \sin \left( \theta_{t} +\frac{\delta \theta }{2} \right)  \\ \delta d\cdot \mathrm{sinc} \left( \frac{\delta \theta }{2} \right)  \sin \left( \theta_{t} +\frac{\delta \theta }{2} \right)  \\ \delta \theta \end{gathered} \right]
 \end{aligned} 
 $$
-in which, the superscript $^{(M)}$ means this is the motion model trajectory,
-$\delta d$ is inferred from wheel encoder, and $\delta \theta$ is inferred from IMU's yaw reading.
+in which, the superscript $^{(2M)}$ means this is a 2D motion model trajectory,
 
 
 \subsection{Observation Model: LiDAR \& ICP}
 The ICP algorithm can estimate relative transformation between 
-source point cloud $S$ and target point cloud $T$.
+two given 3D point cloud: source $S$ and target $T$.
 It achieved this by iterates over these steps:
 \begin{enumerate}
-    \item Find data association for all source points using closest points:
+    \item Find point association for all source points using closest distance:
     $$ \Delta = \left\{\left(s, \arg\min_{t\in T} \|s - t\| \right) | \forall s\in S\right\}$$
 
     \item Estimate relative transformation $_tT_s$ using Kabsch algorithm:
@@ -84,9 +91,8 @@ It achieved this by iterates over these steps:
     \item Update $S \leftarrow {}_tT_s S$ and repeat step 1 until no improvement.
 \end{enumerate}
 
-
-One 2d-LiDAR scan can be represented as a set of range and angle tuple $L = \{(r_i, \phi_i)\}$,
-and converted to a set of point cloud in body frame:
+Meanwhile, 2D-LiDAR scan reports a set of range and angle tuple $L = \{(r_i, \phi_i)\}$,
+which can be converted to a set of 3D point cloud in body frame using following equations.
 $$
 \begin{aligned}
     \mathrm{PC}_{\text{LiDAR frame}} 
@@ -103,11 +109,11 @@ $$
 \begin{aligned}
     _{t}T^{(O)}_{t+1}
         &=\text{ICP}(S=\mathrm{PC}_{t+1}, T=\mathrm{PC}_{t}) \\ 
-    P^{(O)}_{t}
+    P^{(3O)}_{t}
         &=P_{0}\prod^{t}_{f=1} {}_{f-1} T^{(O)}_{f}
 \end{aligned} 
 $$
-in which, the superscript $^{(O)}$ means this is the observation trajectory.
+in which, the superscript $^{(3O)}$ means this is a 3D observation trajectory.
 
 \subsection{Factor Graph and Loop Closure}
 
@@ -125,6 +131,9 @@ in which, the superscript $^{(O)}$ means this is the observation trajectory.
 interpolation 
 linear 
 cubic
+\subsection{wheel encoder}
+average of all 4 wheels
+\subsection{2D 3D pose conversion}
 
 
 \subsection{ICP}
