@@ -5,6 +5,16 @@ import open3d as o3d
 from sklearn.neighbors import NearestNeighbors
 from tqdm import tqdm
 
+def get_T(R,t):
+    T = np.eye(4)
+    T[:3, :3] = R
+    T[:3, 3] = t.squeeze()
+    return T
+
+def get_Rt(T):
+    T = T.squeeze()
+    return T[:3, :3], T[:3, 3]
+
 def read_canonical_model(model_name):
     '''
     Read canonical model from .mat file
@@ -75,37 +85,37 @@ def estimate_transformation(source, target):
         Vt[2,:] *= -1
         R = (U @ Vt)
     t = target_centroid - R @ source_centroid
-    return R, t
+    return get_T(R, t)
 
-def apply_transformation(source, R, t):
+def apply_transformation(source, T):
     """
     Apply the estimated rotation and translation to the source points.
     """
+    R, t = get_Rt(T)
     return (R @ source.T).T + t.squeeze()
 
 def icp(source, target,
-        R = np.eye(3), t = np.zeros(3),
+        T_init = np.eye(4),
         iterations=80, tolerance=1e-8):
     '''
     return target_T_source
     '''
-    source_t = apply_transformation(source, R, t)
+    source_t = apply_transformation(source, T_init)
 
     prev_error = float('inf')
     for i in range(iterations):
         closest_points = find_closest_points(source_t, target)
-        R, t = estimate_transformation(source_t, closest_points)
-        source_t = apply_transformation(source_t, R, t)
+        T = estimate_transformation(source_t, closest_points)
+        source_t = apply_transformation(source_t, T)
         error = np.mean(np.sum((closest_points - source_t) ** 2, axis=1))
-        # bar.set_postfix_str(f"error: {error}")
         if np.abs(prev_error - error) < tolerance:
             break
         prev_error = error
-    R, t = estimate_transformation(source, closest_points)
-    return R, t, error
+    T = estimate_transformation(source, closest_points)
+    return T, error
 
 def multi_icp(source, target, trial = 12):
-    best_R, best_t, best_error = np.eye(3), np.zeros(3), float("inf")
+    best_T, best_error = np.eye(4), float("inf")
     for yaw in np.linspace(0, 2*np.pi, trial):
         rr = np.array([
             [np.cos(yaw), -np.sin(yaw), 0],
@@ -113,11 +123,10 @@ def multi_icp(source, target, trial = 12):
             [0,0,1]
         ])
         tt = np.array([1,0,0])
-        R, t, error = icp(source, target, rr, tt)
+        T, error = icp(source, target, get_T(rr, tt))
         if error < best_error:
-            best_R = R
-            best_t = t
-    return best_R, best_t, best_error
+            best_T = T
+    return best_T, best_error
 
 def o3d_icp(source_PC, target_PC, trans_init = np.eye(4), threshold = 5):
     # Convert numpy arrays to Open3D point clouds
@@ -137,44 +146,41 @@ def o3d_icp(source_PC, target_PC, trans_init = np.eye(4), threshold = 5):
     # Extract the translation from the transformation matrix
     return reg_p2p.transformation
 
-def o3d_fpfh(source_PC, target_PC, trans_init=np.eye(4)):
+def o3d_fpfh(source_array, target_array):
+    # Convert numpy arrays to Open3D point clouds
+    source_PC = o3d.geometry.PointCloud()
+    source_PC.points = o3d.utility.Vector3dVector(source_array)
+    target_PC = o3d.geometry.PointCloud()
+    target_PC.points = o3d.utility.Vector3dVector(target_array)
+
     # Voxel downsampling for both point clouds
-    voxel_size = 0.1  # You can adjust this value
-    source_down = source_PC.voxel_down_sample(voxel_size)
-    target_down = target_PC.voxel_down_sample(voxel_size)
+    voxel_size = 0.4  # You can adjust this value
     
     # Estimate normals
-    radius_normal = voxel_size * 2
-    source_down.estimate_normals(
+    radius_normal = voxel_size
+    source_PC.estimate_normals(
         o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=30))
-    target_down.estimate_normals(
+    target_PC.estimate_normals(
         o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=30))
     
     # Compute FPFH features
-    radius_feature = voxel_size * 5
+    radius_feature = voxel_size
     source_fpfh = o3d.pipelines.registration.compute_fpfh_feature(
-        source_down,
+        source_PC,
         o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=100))
     target_fpfh = o3d.pipelines.registration.compute_fpfh_feature(
-        target_down,
+        target_PC,
         o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=100))
     
     # RANSAC registration
-    distance_threshold = voxel_size * 1.5
-    result = o3d.pipelines.registration.registration_ransac_based_on_feature_matching(
-        source_down, target_down, source_fpfh, target_fpfh, True,
+    distance_threshold = voxel_size * 2
+    fpfh_result = o3d.pipelines.registration.registration_ransac_based_on_feature_matching(
+        source_PC, target_PC, source_fpfh, target_fpfh, True,
         distance_threshold,
-        o3d.pipelines.registration.TransformationEstimationPointToPoint(False), 4, 
-        [o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(0.9),
+        o3d.pipelines.registration.TransformationEstimationPointToPoint(False), 3, 
+        [o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(0.1),
          o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(distance_threshold)],
-        o3d.pipelines.registration.RANSACConvergenceCriteria(4000000, 500))
+        o3d.pipelines.registration.RANSACConvergenceCriteria(40000, 0.999))
     
-    # Initial transformation
-    result.transformation = np.dot(result.transformation, trans_init)
-    
-    # You may want to refine the alignment further using ICP
-    # result_icp = o3d.pipelines.registration.registration_icp(
-    #     source_down, target_down, distance_threshold, result.transformation,
-    #     o3d.pipelines.registration.TransformationEstimationPointToPoint())
-    
-    return result.transformation  # or result_icp.transformation for ICP refinement
+    T, error = icp(source_array, target_array, fpfh_result.transformation)
+    return T
