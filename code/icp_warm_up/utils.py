@@ -68,12 +68,13 @@ def find_closest_points(source, target):
     """
     neigh = NearestNeighbors(n_neighbors=1)
     neigh.fit(target)
-    _, indices = neigh.kneighbors(source, return_distance=True)
-    closest_points = target[indices.flatten()]
+    indices = neigh.kneighbors(source, return_distance=False)
+    closest_points = target[indices.squeeze()]
     return closest_points
 
 def estimate_transformation(source, target):
     """
+    Given (source, target) point association,
     Estimate the rotation and translation using Singular Value Decomposition (SVD).
     """
     source_centroid = np.mean(source, axis=0)
@@ -112,6 +113,41 @@ def icp(source, target,
             break
         prev_error = error
     T = estimate_transformation(source, closest_points)
+    return T, error
+
+def find_closest_points_threshold(source, target, percentile):
+    """
+    Find the closest points in the target for each point in the source using Scikit-learn's NearestNeighbors.
+    """
+    neigh = NearestNeighbors(n_neighbors=1)
+    neigh.fit(target)
+    distances, indices = neigh.kneighbors(source, return_distance=True)
+
+    distance_threshold = np.percentile(distances, percentile * 100)
+    mask = distances.flatten() <= distance_threshold
+
+    closest_points = target[indices.flatten()]
+    return closest_points, mask
+
+def icp_partial(source, target,
+        T_init = np.eye(4),
+        percentile=0.9,
+        iterations=80, tolerance=1e-8):
+    '''
+    return target_T_source
+    '''
+    source_t = apply_transformation(source, T_init)
+
+    prev_error = float('inf')
+    for i in range(iterations):
+        closest_points, mask = find_closest_points_threshold(source_t, target, percentile)
+        T = estimate_transformation(source_t[mask], closest_points[mask])
+        source_t = apply_transformation(source_t, T)
+        error = np.mean(np.sum((closest_points - source_t) ** 2, axis=1))
+        if np.abs(prev_error - error) < tolerance:
+            break
+        prev_error = error
+    T = estimate_transformation(source[mask], closest_points[mask])
     return T, error
 
 def multi_icp(source, target, trial = 12):

@@ -11,7 +11,7 @@ def toc(tstart, name="Operation"):
 
 ##### 1. 
 class InterpN1D:
-    def __init__(self, t, values, kind='cubic'):
+    def __init__(self, t, values, kind='linear'):
         """
         Initialize the interpolation object.
 
@@ -76,7 +76,6 @@ def plot_scan(lidar_ranges, odometry):
     pc = lidar_scan_to_3dpc(lidar_ranges)
     wTo = odometry_to_transformation(odometry)
     r, t = get_Rt(wTo)
-    print(r.shape)
     pc_world = (r @ pc.T).T + t
     plt.scatter(pc_world[:,0], pc_world[:,1])
 
