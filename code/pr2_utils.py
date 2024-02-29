@@ -31,34 +31,50 @@ class InterpN1D:
         # Interpolate each series and stack them horizontally
         return np.array([f(ts) for f in self.fs]).T
 
-def plot_odometry(odometries, loc = "best"):
+def plot_odometry(odometry_serious, loc = "best"):
     '''
     odometries: [(odometry1, timestamp1, label), (odometry2, timestamp2, label), ...]
     '''
-    for odometry, stamp, label in odometries:
-        plt.plot(odometry[:,0], odometry[:,1], label=label)
+    for serious in odometry_serious:
+        odometry, stamp, label = serious[:3]
+        kwargs = {}
+        if len(serious) == 4:
+            kwargs = serious[3]
+        plt.plot(odometry[:,0], odometry[:,1], label=label, **kwargs)
     plt.xlabel("x")
     plt.xlabel("y")
     plt.legend(loc=loc)
     plt.grid(True)
     plt.show()
 
-    for i, (odometry, stamp, label) in enumerate(odometries):
-        plt.plot(stamp, odometry[:,0], label=label)
+    for i, serious in enumerate(odometry_serious):
+        odometry, stamp, label = serious[:3]
+        kwargs = {}
+        if len(serious) == 4:
+            kwargs = serious[3]
+        plt.plot(stamp, odometry[:,0], label=label, **kwargs)
     plt.xlabel("timestamp")
     plt.ylabel("x")
     plt.legend(loc=loc)
     plt.show()
 
-    for i, (odometry, stamp, label) in enumerate(odometries):
-        plt.plot(stamp, odometry[:,1], label=label)
+    for i, serious in enumerate(odometry_serious):
+        odometry, stamp, label = serious[:3]
+        kwargs = {}
+        if len(serious) == 4:
+            kwargs = serious[3]
+        plt.plot(stamp, odometry[:,1], label=label, **kwargs)
     plt.xlabel("timestamp")
     plt.ylabel("y")
     plt.legend(loc=loc)
     plt.show()
 
-    for i, (odometry, stamp, label) in enumerate(odometries):
-        plt.plot(stamp, np.unwrap(odometry[:,2]), label=label)
+    for i, serious in enumerate(odometry_serious):
+        odometry, stamp, label = serious[:3]
+        kwargs = {}
+        if len(serious) == 4:
+            kwargs = serious[3]
+        plt.plot(stamp, np.unwrap(odometry[:,2]), label=label, **kwargs)
     plt.xlabel("timestamp")
     plt.ylabel("yaw")
     plt.legend(loc=loc)
