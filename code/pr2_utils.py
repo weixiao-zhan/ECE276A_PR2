@@ -58,10 +58,7 @@ def plot_odometry(odometries, loc = "best"):
     plt.show()
 
     for i, (odometry, stamp, label) in enumerate(odometries):
-        plt.plot(stamp, odometry[:,2], label=label)
-        if np.min(odometry[:,2])<-np.pi or np.max(odometry[:,2])>np.pi:
-            normalized_yaw = np.remainder(odometry[:,2]+np.pi, 2*np.pi)-np.pi
-            plt.plot(stamp, normalized_yaw, color = f'C{i}', linestyle=":",label=f'{label} [normalized]')
+        plt.plot(stamp, np.unwrap(odometry[:,2]), label=label)
     plt.xlabel("timestamp")
     plt.ylabel("yaw")
     plt.legend(loc=loc)
