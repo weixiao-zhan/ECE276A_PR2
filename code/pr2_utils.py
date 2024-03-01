@@ -31,7 +31,7 @@ class InterpN1D:
         # Interpolate each series and stack them horizontally
         return np.array([f(ts) for f in self.fs]).T
 
-def plot_odometry(odometry_serious, loc = "best"):
+def plot_odometry(odometry_serious, legend_kw = {}):
     '''
     odometries: [(odometry1, timestamp1, label), (odometry2, timestamp2, label), ...]
     '''
@@ -43,7 +43,7 @@ def plot_odometry(odometry_serious, loc = "best"):
         plt.plot(odometry[:,0], odometry[:,1], label=label, **kwargs)
     plt.xlabel("x")
     plt.xlabel("y")
-    plt.legend(loc=loc)
+    plt.legend(**legend_kw)
     plt.grid(True)
     plt.show()
 
@@ -55,7 +55,7 @@ def plot_odometry(odometry_serious, loc = "best"):
         plt.plot(stamp, odometry[:,0], label=label, **kwargs)
     plt.xlabel("timestamp")
     plt.ylabel("x")
-    plt.legend(loc=loc)
+    plt.legend(**legend_kw)
     plt.show()
 
     for i, serious in enumerate(odometry_serious):
@@ -66,7 +66,7 @@ def plot_odometry(odometry_serious, loc = "best"):
         plt.plot(stamp, odometry[:,1], label=label, **kwargs)
     plt.xlabel("timestamp")
     plt.ylabel("y")
-    plt.legend(loc=loc)
+    plt.legend(**legend_kw)
     plt.show()
 
     for i, serious in enumerate(odometry_serious):
@@ -77,7 +77,7 @@ def plot_odometry(odometry_serious, loc = "best"):
         plt.plot(stamp, np.unwrap(odometry[:,2]), label=label, **kwargs)
     plt.xlabel("timestamp")
     plt.ylabel("yaw")
-    plt.legend(loc=loc)
+    plt.legend(**legend_kw)
     plt.show()
 
 ##### 2.
