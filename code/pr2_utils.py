@@ -42,7 +42,7 @@ def plot_odometry(odometry_serious, legend_kw = {}):
             kwargs = serious[3]
         plt.plot(odometry[:,0], odometry[:,1], label=label, **kwargs)
     plt.xlabel("x")
-    plt.xlabel("y")
+    plt.ylabel("y")
     plt.legend(**legend_kw)
     plt.grid(True)
     plt.show()
