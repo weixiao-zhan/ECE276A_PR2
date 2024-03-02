@@ -3,6 +3,4 @@ data/dataRGBD
 **.DS_Store
 report/*
 !report/*.tex
-!report/*.pdf
 !report/*.tex
-report/report.pdf
