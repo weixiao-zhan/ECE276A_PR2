@@ -46,7 +46,8 @@ detailed maps, showcasing the potential.
 
 
 \section{Problem Formulation}
-The robot trajectory, discretized as a set of pose and time stamp tuples, is the core of all computation.
+The robot trajectory, discretized as a set of pose and time stamp tuples, 
+is the core of computation.
 Denote the robot's pose at given time stamp \(t\) as \(P_t\).
 The pose can be represented in both two-dimensional (2D) and three-dimensional (3D) spaces, 
 with the z-axis value fixed at zero. 
@@ -56,154 +57,151 @@ P_{t} = \begin{cases}
     \xlongequal{3D} \left[ \begin{matrix}R_{yaw}(\theta )&\left[ \begin{gathered}x\\ y\\0\end{gathered} \right]  \\ \mathbf{0}&1\end{matrix} \right] & \in \mathbb{R}^{[4\times 4]}
 \end{cases} 
 $$
-This dual representation enables seamless transition between 2D and 3D spatial analyses.
-The initial pose $P_0$ at time 0 is defined as the origin of the world frame
+These representations imply the same intrinsics 
+and will be used seamlessly in following 2D-3D-mixed analysis.
+The initial pose $P_0$ at time 0 is also defined as the world frame
 serving as the reference for all subsequent poses.
 $$P_{0}=\begin{cases}\vec{0}_{3}\\ I_{4}\end{cases} $$
 
-
 \subsection{Motion Model: IMU \& Differential-drive Kinematics}
-Consider a small time interval $\tau$ between two consecutive time stamp $t$ and $t+1$.
-Suppose wheel encoder reported $\delta d$
-and IMU's yaw reading reproted $\delta \theta$ during this interval,
+Consider a small time interval $\tau$ between two consecutive time stamp $t-1$ and $t$.
+Suppose wheel encoder and IMU reports the robot has traveled $\delta d$ ($m$) distance and 
+and rotated $\delta \theta$ (rad) during this interval,
 the motion of robot can be approximate as an arc:
 $$
 \begin{aligned}
-    P_{t+1}^{(2M)}
-    % &=P_{t}^{(2M)} +\tau \left[ \begin{gathered}v_{t}\mathrm{sinc} \left( \frac{w_{t}\tau }{2} \right)  \cos \left( \theta_{t} +\frac{w_{t}\tau }{2} \right)  \\ v_{t}\mathrm{sinc} \left( \frac{w_{t}\tau }{2} \right)  \sin \left( \theta_{t} +\frac{w_{t}\tau }{2} \right)  \\ w_{t}\end{gathered} \right]  \\
-    &=P_{t}^{(2M)} +\left[ \begin{gathered}\delta d\cdot \mathrm{sinc} \left( \frac{\delta \theta }{2} \right)  \sin \left( \theta_{t} +\frac{\delta \theta }{2} \right)  \\ \delta d\cdot \mathrm{sinc} \left( \frac{\delta \theta }{2} \right)  \sin \left( \theta_{t} +\frac{\delta \theta }{2} \right)  \\ \delta \theta \end{gathered} \right]
+    {}_{t-1}O_{t}
+        & =\left[ \begin{gathered}\delta d\cdot \mathrm{sinc} \left( \frac{\delta \theta }{2} \right)  \sin \left( \theta_{t} +\frac{\delta \theta }{2} \right)  \\ \delta d\cdot \mathrm{sinc} \left( \frac{\delta \theta }{2} \right)  \sin \left( \theta_{t} +\frac{\delta \theta }{2} \right)  \\ \delta \theta \end{gathered} \right] \\
+    P_{t}^{(2M)}
+    &=P_{0}^{(2M)} + \sum_{f=1}^{t} {}_{f-1}O_{f}
 \end{aligned} 
 $$
 in which, the superscript $^{(2M)}$ means this is a 2D motion model trajectory,
 
 
 \subsection{Observation Model: LiDAR \& Scan Matching}
-Scan matching employed ICP algorithm,
-which can estimate the relative transformation between 
-two point clouds, source $S$ and target $T$,
-without prior knowledge of data association.
-It achieved this by iterates over these steps:
-\begin{enumerate}
-    \item Find point association for all source points using closest distance:
-    $$ \Delta = \left\{\left(s, \arg\min_{t\in T} \|s - t\| \right) \bigg| \forall s\in S\right\}$$
+Scan matching can, given observations at different poses,
+estimate their elative transformations.
+Scan matching on LiDAR scan is used as observation model in this project.
 
-    \item Estimate relative transformation $_tT_s$ using Kabsch algorithm:
-    $$T_k = \arg\min_T \sum\limits_{(s,t)\in\Delta} \|t - Ts\|$$
-    assuming $s$ and $t$ are in homogenous coordinate.
-    \item Update $S \leftarrow T_k S$, increase $k$ by 1, and repeat step 1 until no improvement.
-\end{enumerate}
-Lastly, compose and report the total transformation $_tT_s = \prod_k T_k$ and error 
-$_t\epsilon_s = \sum_{(s,t)\in\Delta} \|t - {}_tT_s\cdot s\| / |\Delta| $.
-
-
-Meanwhile, 2D-LiDAR scan reports a set of range and angle tuple $L = \{(r_i, \phi_i)\}$,
-which can be converted to a set of 3D point cloud in body frame using following equations.
+2D-LiDAR scan reports a set of range and angle tuple $L_t = \{(r_i, \phi_i)\}$ at time stamp $t$,
+which can be converted to a set of 3D point cloud in body frame using following equations:
 $$
 \begin{aligned}
     \mathrm{PC}_{\text{LiDAR frame}} 
-        &= \left\{ \left[ \begin{gathered}r_i\sin \phi_i \\ r_i\cos \phi_i \\ 0\end{gathered} \right] \bigg| \forall (r_i, \phi_i)\in L\right\} 
+        &= \left\{ \left[ \begin{gathered}r_i\sin \phi_i \\ r_i\cos \phi_i \\ 0\end{gathered} \right] \bigg| \forall (r_i, \phi_i)\in L_t\right\} 
         \\
-    \left[ \begin{gathered} \mathrm{PC} \\ 1\end{gathered} \right]  
+    \left[ \begin{gathered} \mathrm{PC}_t \\ 1\end{gathered} \right]  
     &= _{\text{body}}T_{\text{LiDAR}}  \left[ \begin{gathered} \mathrm{PC}_{\text{LiDAR frame}}  \\ 1\end{gathered} \right]  
 \end{aligned}
 $$
 
-Leveraging ICP, I can estimate relative transformation between two LiDAR scan and
-compose observation model trajectory:
+Since there is  prior knowledge of data association between two LiDAR scans,
+ICP algorithm is used.
+Given two homogenous point clouds, source $PC_s$ and target $PC_t$, 
+and an initial guess transformation $T_0$,
+ICP iterates following steps:
+\begin{enumerate}
+    \item Apply initial guess: $PC_s \leftarrow T_0 \cdot PC_s$ and set $k \leftarrow 1$.
+    
+    \item Find point association using nearest neighbor:
+    $$ \Delta = \left\{\left(s, \arg\min_{t\in PC_T} \|s - t\| \right) \bigg| \forall s\in PC_s\right\}$$
+
+    \item Estimate relative transformation $T_k$ using Kabsch algorithm:
+    $$T_k = \arg\min_{T\in SE(3)} \sum\limits_{(s,t)\in\Delta} \|t - Ts\|$$.
+    
+    \item Update $PC_s \leftarrow T_k PC_s$, increase $k$ by 1, and repeat from step 2 until no improvement.
+
+    \item Compose and report the total transformation $_tT_s = \prod_k T_k$ and error 
+    $_t\epsilon_s = \frac{1}{|\Delta|} \sum_{(s,t)\in\Delta} \|t - {}_tT_s\cdot s\|  $.
+\end{enumerate}
+
+
+Using ICP to estimate relative transformation between consecutive LiDAR scans,
+observation model trajectory is composed as following:
 $$
 \begin{aligned}
-    _{t}T^{(O)}_{t+1}
-        &=\text{ICP}(S=\mathrm{PC}_{t+1}, T=\mathrm{PC}_{t}) \\ 
+    _{t-1}T_{t}
+        &=\text{ICP}(S=\mathrm{PC}_{t}, T=\mathrm{PC}_{t-1}) \\ 
     P^{(3O)}_{t}
-        &=P_{0}\prod^{t}_{f=1} {}_{f-1} T^{(O)}_{f}
+        &=P_{0}\prod^{t}_{f=1} {}_{f-1}T_{f} = {}_{0}T_{t}
 \end{aligned} 
 $$
 in which, the superscript $^{(3O)}$ means this is a 3D observation trajectory.
 
 \subsection{Factor Graph and Loop Closure}
-ToDo add slides reports
-A Factor Graph is a constrained optimization problem modeled over a directed graph. 
-Nodes in the graph represent random variables, 
-while edges signify dependencies between them, i.e., conditional distributions. 
-Factor graph assumes random variables with not directly edges are conditionally independent. 
-The optimizer of a factor graph is the maximize likelihood.
+Factor graph is a constrained optimization model for SLAM problem.
+Graph nodes represent robot states as random variables,
+while edges represent motion and observation constraints as conditional distributions.
+The optimizer of a factor graph is the random variables that maximize likelihood of all factors.
 
-In this project, robot states are treated as graph nodes, 
-with observations and the motion model represented as edges. \
-The graph is defined as follows:
+Loop Closure is a special type of constraint in factor graph.
+Typical constraints based on Markov assumption builds a single chain graph, 
+in which error and noise accumulate.
+However, when some temporally distant robot states are spatially close,
+it is possible to estimate their relative transformations,
+thereby create loops in factor graph and reduce accumulated error.
+
+A loop detection criteria based on max location difference $d^*$, 
+max yaw difference $\theta^*$, and min interval $\tau^*$
+is used to find potential loop closure pose pairs $lc$:
+$$
+lc = \left\{(i, j) \bigg| 
+\begin{aligned}
+    \| P_{i}[xy]-P_{j}[xy]\| &< d^*\\ 
+    \| P_{i}[\theta]-P_{j}[\theta]\| &< \theta^* \\
+    |i-j|&>\tau^*
+\end{aligned} 
+, \forall i, j\right\}
+$$
+
+The factor graph is construct as:
 $$
 \begin{aligned}
 G &= (V, E) \\
 V &= \{ P_{t},\ \forall t\} \\
 E &= \left\{ \begin{gathered}
-\underbrace{(P^{(M)}_{t-1} \rightarrow P^{(M)}_{t}),\ \forall t}_{\text{motion constraints}} \\
-\underbrace{(P^{(O)}_{t-1} \rightarrow P^{(O)}_{t}),\ \forall t}_{\text{observation constraints}} \\
-\underbrace{(P_{i} \rightarrow P_{j})}_{\text{loop closure constraints}}
+\underbrace{P_{t}^{(2)} \ominus \left(P_{t-1}^{(2)} + {}_{t-1}O_{t} \right),\forall t}_{\text{motion constraints}} \\
+\underbrace{P_{t}^{(3)} \ominus \left(P_{t-1}^{(3)} \cdot {}_{t-1}T_{t} \right),\forall t}_{\text{observation constraints}} \\
+\underbrace{\begin{gathered} P_{i}^{(3)} \ominus \left(P_{j}^{(3)} \cdot \text{ICP}(S=\mathrm{PC}_{i}, T=\mathrm{PC}_{j}) \right) \\ \forall (i,j) \in lc \end{gathered}}_{\text{loop closure constraints}}
 \end{gathered} \right\}
 \end{aligned}
 $$
-There are three types of constraints:
+The three types of constraints are:
 \begin{enumerate}
 \item Motion constraints applied to two consecutive poses, derived differential drive kinematics.
 \item Observation constraints on two consecutive poses, utilizing scan matching (ICP).
 \item Loop closure constraints on poses that are spatially proximate yet temporally distant.
 \end{enumerate}
 
-The potential for loop closure arises when some poses are spatially close 
-to permit the use of ICP for estimating relative transformations 
-between temporally distant poses, thereby correct accumulated errors.
-
-Let $lc(P_i)$ represent the set of potential loop closure pose of $P_i$.
-Following loop detection criteria based on super-parameter 
-max location difference $d^*$, max yaw difference $\theta^*$, and min interval $\tau^*$
-is used to find potential poses:
-$$
-lc(P_i) = \left\{P_j \bigg| 
-\begin{aligned}
-    \| P_{i}[xy]-P_{j}[xy]\| &< d^*\\ 
-    \| P_{i}[\theta]-P_{j}[\theta]\| &< \theta^*
-\end{aligned} 
-, \forall P_j, |i-j|>\tau^*\right\}
-$$
-
-The actual loop closure pairs $L_n$ is sampled from all potential loop closure pairs:
-$$L_n \subset  \left\{(P_i, P_j), P_j \in lc(P_i), \forall P_i\right\}$$
-in which, $n = |L_n|$ denote the sample size.
-
-Finally, for all $(P_i, P_j)\in L_n$, proportion ICP is used to 
-estimate relative transformations $_jT_i$ and 
-error $_j\epsilon_i$. New edges $P_i\rightarrow P_j = {}_jT_i$ with 
-variance matrix $diag({}_j\epsilon_i, {}_j\epsilon_i, {}_j\epsilon_i)$ 
-is added to factor graph.
 
 \subsection{Mapping}
-Mapping is a critical component of SLAM, 
-focused on reconstructing the surrounding environment using various sensors.
-
-In this project, 2D LiDAR was used to construct an occupancy map, 
-while an RGB-D camera, which provides both RGB and depth information,
+Mapping is another critical component of SLAM, 
+which reconstructs the surrounding environment using various sensors.
+2D LiDAR was used to construct an occupancy map, 
+while an RGB-D camera, which provides both RGB and disparity information,
 was employed for texture mapping of the environment.
 
 \subsubsection{Occupancy}
 LiDAR scan $(r_i, \phi_i)$ infer that 
 the end-points ($\{(r_i\cos\phi_i, r_i\sin\phi_i), \forall i\}$ in LiDAR frame) are occupied,
-while the space between the LiDAR sensor origin ($(0, 0)$ in LiDAR frame) and 
-end-points is empty.
-By transforming the endpoints and LiDAR sensor to world frame using robot poses,
-and discretized the world into a grid of cells,
-I can employ the Bresenham ray tracing algorithm to obtain empty cell sets of each scan,
-and use logistic regression over all scans to estimate the probability of occupancy of each cells.
+while the space between the end-points and LiDAR sensor origin 
+($(0, 0)$ in LiDAR frame) and is empty.
+
+By transforming the endpoints and LiDAR sensor to world frame,
+discretizing the world floor into a grid of cells,
+using Bresenham ray tracing to obtain empty and occupied cell set,
+the probability of occupancy of each cells can be estimate by
+logistic regression over all scans.
 
 \subsubsection{Texture}
-Utilizing the supplementary depth information, 
-an RGB-D image is transformed into a 3D point cloud within the camera frame, 
-which is subsequently converted to the world frame leveraging the robot poses. 
-This process creates a 3D texture map of the environment. 
-By isolating and presenting points where $Z=0$, 
-a texture map specifically representing the floor is generated.
+By transforming disparity information to depth information,
+converting RGB-D images to 3D colored point cloud in world frame,
+isolating points whose $|z| < z^*$,
+a texture floor map can be generated.
 
 \section{Technical Approach}
-
+To Start
 \subsection{Time Stamp Synchronization}
 Given that sensors operate at varying frequencies, 
 and even with identical frequencies, 
@@ -307,6 +305,11 @@ ToDo
 variance of motion model edge
 variance of observation model
 
+Finally, for all $(i, j)\in lc$, proportion ICP is used to 
+estimate relative transformations $_jT_i$ and 
+error $_j\epsilon_i$. New edges $P_i\rightarrow P_j = {}_jT_i$ with 
+variance matrix $diag({}_j\epsilon_i, {}_j\epsilon_i, {}_j\epsilon_i)$ 
+is added to factor graph.
 
 \subsection{Loop closure}
 
@@ -316,6 +319,7 @@ $d^* = 0.5$, $\theta^* = \frac 3 4 \pi$
 $L_{615}$ and $L_{1838}$ is sampled on dataset 20; 
 $L_{651}$ and $L_{1959}$ is sampled on dataset 21.
 
+\subsection{multi Factor Graph}
 
 
 \subsection{mapping}
@@ -359,7 +363,7 @@ Meanwhile, the D camera and RGB camera are not in the same location.
 There is an x-axis offset between them and it is necessary to use a 
 transformation to match the color to the depth. 
 Given values $d$ at pixel $(u, v)$ of the disparity image, 
-the associated RGB color pixel location $(rgbu, rgbv)$ are calculated as follows:
+the associated RGB color pixel location $(rgbu, rgbv)$ are calculated as following:
 $$
 \begin{aligned}
     dd&=-0.00304d+3.31\\ 
@@ -384,11 +388,21 @@ trajectory estimate and the resulting map quality. Make sure your results includ
 trajectory and occupancy grid map over time constructed by your SLAM algorithm and (b) textured
 maps over time. If you have videos, include them in your submission zip file and refer to them in your
 report.
+
+
 \subsection{trajectory}
 
 \subsection{occupancy map}
 
 \subsection{floor map}
+
+\appendix
+\subsection{ICP warm up}
+
+\subsection{3D texture mapping}
+https://youtu.be/yPtubAjLYnc
+
+
 
 
 \end{document}
