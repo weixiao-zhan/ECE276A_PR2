@@ -380,14 +380,41 @@ to reduce computation.
 
 
 \section{Results}
-[15 pts] Results: Present your results, and discuss them – what worked, what did not, and why.
-Analyze the impact of loop closure detection and pose graph optimization on the accuracy of the robot
-trajectory estimate and the resulting map quality. Make sure your results include (a) images of the
-trajectory and occupancy grid map over time constructed by your SLAM algorithm and (b) textured
-maps over time. If you have videos, include them in your submission zip file and refer to them in your
-report.
+Figure \ref*{fig:dataset20} and Figure \ref*{fig:dataset21} show 
+the results from dataset 20 and 21 respectively.
+Sub-figure \ref*{fig:trj_20} to \ref*{fig:trj_20_yaw} and 
+\ref*{fig:trj_21} to \ref*{fig:trj_21_yaw} show
+the trajectory from motion model, observation model, 
+factor graph without loop closure constraints, 
+and factor graph with loop closure constraints.
+Sub-figure \ref*{fig:omap_20_imu} to \ref*{fig:omap_20_lc1} and 
+\ref*{fig:omap_21_imu} to \ref*{fig:omap_21_lc1} show
+the occupancy map based on different trajectories.
+Sub-figure \ref*{fig:fmap_20_imu} to \ref*{fig:fmap_20_lc1} and 
+\ref*{fig:fmap_21_imu} to \ref*{fig:fmap_21_lc1} show
+the floor texture map based on different trajectories.
 
-\begin{figure*}[htbp]
+Result discussion:
+\begin{itemize}
+    \item On dataset 20, 
+    the motion model has produced solid result as a starting point (Fig. \ref*{fig:omap_20_imu}). 
+    Observation model, factor graph, and loop closure optimize 
+    on the basis of the motion model and improve on details: 
+    boundaries are clearer in occupancy map \ref*{fig:omap_20_lc0},
+    the walls are straight and parallel in floor map \ref*{fig:fmap_20_lc1}, 
+    etc.
+    \item On dataset 21,
+    the motion model produced some errors in the vertical hallway area.
+    The observation model, however, stuck to some local minimal, and even made the trajectory worse.
+    The loop closure factor graph was able to correct some errors in x coordinate, 
+    but messed up the orientation, causing less reliable mapping results.
+    \item ICP algorithm is prone to trap in local minimals. 
+    Thus a good initial-guess translation is critical. 
+    If the robot is equipped with 3D-LiDAR or using the 3d point cloud from RGBD camera, 
+    the ICP estimation could be improved by extra dimension and points.
+\end{itemize}
+
+\begin{figure*}
     \centering
     % First row
     \begin{subfigure}{0.24\textwidth}
@@ -468,7 +495,7 @@ report.
     \label{fig:dataset20}
 \end{figure*}
 
-\begin{figure*}[htbp]
+\begin{figure*}
     \centering
     % First row
     \begin{subfigure}{0.24\textwidth}
@@ -548,25 +575,109 @@ report.
     \caption{dataset 21 results}
     \label{fig:dataset21}
 \end{figure*}
-
-$\{dataset 20, dataset 21\}\times{}$
-
-\subsection{trajectory}
-
-\subsection{occupancy map}
-
-\subsection{floor map}
+\textit{Big images are at \texttt{img/}.}
 
 \appendix
 \subsection{ICP warm up}
+Figure \ref*{fig:icp_warm_up} shows ICP warm up results.
+Because, the source point cloud is just one side of the object,
+source point cloud tends to be squashed into the target point cloud.
+In sub figure \ref*{fig:drill_3},
+The source and target is aligned inverted on 1 axial but correctly on the other 2 axis.
+This is an example of ICP stuck on local minimal and could not improve over iteration.
+
+\begin{figure*}
+    % First row
+    \begin{subfigure}{0.24\textwidth}
+        \includegraphics[width=\linewidth]{../code/icp_warm_up/drill_0.png}
+        \caption{drill 0}
+        \label{fig:drill_0}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.24\textwidth}
+        \includegraphics[width=\linewidth]{../code/icp_warm_up/drill_1.png}
+        \caption{drill 1}
+        \label{fig:drill_1}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.24\textwidth}
+        \includegraphics[width=\linewidth]{../code/icp_warm_up/drill_2.png}
+        \caption{drill 2}
+        \label{fig:drill_2}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.24\textwidth}
+        \includegraphics[width=\linewidth]{../code/icp_warm_up/drill_3.png}
+        \caption{drill 3}
+        \label{fig:drill_3}
+    \end{subfigure}
+    
+    % Second row
+    \begin{subfigure}{0.24\textwidth}
+        \includegraphics[width=\linewidth]{../code/icp_warm_up/liq_0.png}
+        \caption{liq 0}
+        \label{fig:liq_0}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.24\textwidth}
+        \includegraphics[width=\linewidth]{../code/icp_warm_up/liq_1.png}
+        \caption{liq 1}
+        \label{fig:liq_1}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.24\textwidth}
+        \includegraphics[width=\linewidth]{../code/icp_warm_up/liq_2.png}
+        \caption{liq 2}
+        \label{fig:liq_2}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.24\textwidth}
+        \includegraphics[width=\linewidth]{../code/icp_warm_up/liq_3.png}
+        \caption{liq 3}
+        \label{fig:liq_3}
+    \end{subfigure}
+    
+    \caption{icp warm up results}
+    \label{fig:icp_warm_up}
+\end{figure*}
 
 \subsection{proportion ICP improvement}
+Figure \ref*{fig:icp} shows the improvement of revised proportion ICP 
+on observation model trajectory.
+
+\begin{figure*}
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\linewidth]{../img/propotion_ICP.png}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \includegraphics[width=\linewidth]{../img/propotion_ICP_yaw.png}
+    \end{subfigure}
+    
+    \caption{ICP vs Propotion ICP}
+    \label{fig:icp}
+\end{figure*}
 
 
 \subsection{3D texture mapping}
-https://youtu.be/yPtubAjLYnc
+Figure \ref*{fig:3d_map} and video at https://youtu.be/yPtubAjLYnc
+shows the result of a 3D texture mapping.
 
-
-
+\begin{figure*}
+    \begin{subfigure}{0.3\textwidth}
+        \includegraphics[width=\linewidth]{../img/3D_0.png}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.3\textwidth}
+        \includegraphics[width=\linewidth]{../img/3D_1.png}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.3\textwidth}
+        \includegraphics[width=\linewidth]{../img/3D_2.png}
+    \end{subfigure}
+    
+    \caption{3D texture mapping}
+    \label{fig:3d_map}
+\end{figure*}
 
 \end{document}
