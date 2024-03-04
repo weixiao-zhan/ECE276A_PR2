@@ -29,10 +29,8 @@
 Simultaneous Localization and Mapping (SLAM) is pivotal in robotics, 
 enabling autonomous systems to understand their surroundings and their locations 
 with minimal human intervention. 
-In this project, SLAM on a differential-drive robot equipped with a wheel encoder, 
-an Inertial Measurement Unit (IMU), 2-D LiDAR, and an RGBD camera is implemented,
-which optimize the robot trajectory,  
-and reconstructed detailed occupancy and floor texture map.
+In this project, SLAM on a differential-drive robot equipped with wheel encoder, 
+Inertial Measurement Unit (IMU), 2-D LiDAR, and RGBD camera is implemented.
 
 The process began with the construction of a motion model trajectory based on 
 the differential-drive kinematics, 
@@ -49,7 +47,7 @@ detailed maps, showcasing the potential.
 The robot trajectory, discretized as a set of pose and time stamp tuples, 
 is the core of computation.
 Denote the robot's pose at given time stamp \(t\) as \(P_t\).
-The pose can be represented in both two-dimensional (2D) and three-dimensional (3D) spaces, 
+The pose can be represented in both two-dimensional (2D) and three-dimensional (3D) notation, 
 with the z-axis value fixed at zero. 
 $$
 P_{t} = \begin{cases}
@@ -58,7 +56,7 @@ P_{t} = \begin{cases}
 \end{cases} 
 $$
 These representations imply the same intrinsics 
-and will be used seamlessly in following 2D-3D-mixed analysis.
+and will be used in following 2D-3D-mixed analysis.
 The initial pose $P_0$ at time 0 is also defined as the world frame
 serving as the reference for all subsequent poses.
 $$P_{0}=\begin{cases}\vec{0}_{3}\\ I_{4}\end{cases} $$
@@ -76,15 +74,14 @@ $$
     &=P_{0}^{(2M)} + \sum_{f=1}^{t} {}_{f-1}O_{f}
 \end{aligned} 
 $$
-in which, the superscript $^{(2M)}$ means this is a 2D motion model trajectory,
+in which, superscript $^{(2M)}$ means this is a 2D motion model trajectory,
 
 
 \subsection{Observation Model: LiDAR \& Scan Matching}
-Scan matching can, given observations at different poses,
-estimate their elative transformations.
-Scan matching on LiDAR scan is used as observation model in this project.
+Scan matching on 2D LiDAR can estimate relative transformations between observations.
+and is used as observation model in this project.
 
-2D-LiDAR scan reports a set of range and angle tuple $L_t = \{(r_i, \phi_i)\}$ at time stamp $t$,
+2D LiDAR scan reports a set of range and angle tuple $L_t = \{(r_i, \phi_i)\}$ at time stamp $t$,
 which can be converted to a set of 3D point cloud in body frame using following equations:
 $$
 \begin{aligned}
@@ -96,7 +93,7 @@ $$
 \end{aligned}
 $$
 
-Since there is  prior knowledge of data association between two LiDAR scans,
+Since there is no prior knowledge of data association between two LiDAR scans,
 ICP algorithm is used.
 Given two homogenous point clouds, 
 source $S = \left\{\left[ \begin{matrix}PC_{s}& 1\end{matrix} \right]^T \right\} $ at timestamp $s$,
@@ -122,8 +119,7 @@ ICP iterates following steps:
 \end{enumerate}
 
 
-Using ICP to estimate relative transformation between consecutive LiDAR scans,
-observation model trajectory is composed as following:
+With ICP results, Observation model trajectory is composed as following:
 $$
 \begin{aligned}
     _{t-1}T_{t}
@@ -132,7 +128,7 @@ $$
         &=P_{0}\prod^{t}_{f=1} {}_{f-1}T_{f} = {}_{0}T_{t}
 \end{aligned} 
 $$
-in which, the superscript $^{(3O)}$ means this is a 3D observation trajectory.
+in which, superscript $^{(3O)}$ means this is a 3D observation trajectory.
 
 \subsection{Factor Graph and Loop Closure}
 Factor graph is a constrained optimization model for SLAM problem.
@@ -174,18 +170,17 @@ E &= \left\{ \begin{gathered}
 $$
 The three types of constraints are:
 \begin{enumerate}
-\item Motion constraints applied to two consecutive poses, derived differential drive kinematics.
+\item Motion constraints applied on two consecutive poses, derived differential drive kinematics.
 \item Observation constraints on two consecutive poses, utilizing scan matching (ICP).
-\item Loop closure constraints on poses that are spatially proximate yet temporally distant.
+\item Loop closure constraints on poses that are temporally distant but spatially proximate.
 \end{enumerate}
 
 
 \subsection{Mapping}
-Mapping is another critical component of SLAM, 
-which reconstructs the surrounding environment using various sensors.
-2D LiDAR was used to construct an occupancy map, 
-while an RGB-D camera, which provides both RGB and disparity information,
-was employed for texture mapping of the environment.
+Mapping reconstructs the surrounding environment based on robot poses and measurements from various sensors.
+2D LiDAR scan is used to construct an occupancy map, 
+while RGB-D camera, which provides both RGB and disparity information,
+is employed for texture mapping.
 
 \subsubsection{Occupancy}
 LiDAR scan $(r_i, \phi_i)$ infer that 
@@ -193,18 +188,18 @@ the end-points ($\{(r_i\cos\phi_i, r_i\sin\phi_i), \forall i\}$ in LiDAR frame) 
 while the space between the end-points and LiDAR sensor origin 
 ($(0, 0)$ in LiDAR frame) and is empty.
 
-By transforming the endpoints and LiDAR sensor to world frame,
-discretizing the world floor into a grid of cells,
-using Bresenham ray tracing to obtain empty and occupied cell set,
+By discretizing the world floor into a grid of cells,
+transforming the endpoints and LiDAR sensor origin to body frame using $_{\text{body}}T_{\text{LiDAR}}$, 
+then to world frame using robot pose $P_t$,
+and using Bresenham ray tracing to obtain empty and occupied cell set,
 the probability of occupancy of each cells can be estimate by
 logistic regression over all scans.
 
 \subsubsection{RGB Texture}
 Consider values $d$ at pixel $(u, v)$ of the disparity image 
 and its associated $rgb$ value.
-Given the intrinsic matrix $K$ of the D camera, 
-the equations to convert disparity value $d$ to the associated depth $z$,
-and the projection equation:
+Given the intrinsic matrix $K$ of the D camera and
+the equations to convert disparity value $d$ to the associated depth $z$:
 $$
 \begin{aligned}
     z&=g(d)\\ 
@@ -229,8 +224,7 @@ a texture floor map can be generated.
 
 \subsection{Data interpolation on timestamps}
 Robot sensors operate at varying frequencies and no synchronization is enforced. 
-Thus, interpolation is used to infer data values at desired timestamps,
-allowing integrating data from multiple sensors.
+Thus, interpolation is used to infer data values at desired timestamps.
 Specifically, following strategies are employed:
 \begin{itemize}
 \item Wheel encoder data is linearly interpolated at the IMU timestamps in motion models. 
@@ -246,9 +240,9 @@ Specifically, following strategies are employed:
 
 \subsection{Body frame}
 The origin of the body frame is defined as the geometric center of four wheels, 
-instead of the center of the rear axle suggested by robot configuration. 
-This positioning aligns body frame origin more closely to IMU sensor, 
-making IMU yaw rate a more accurately approximation of true yaw rate.
+instead of the rear axle center suggested by robot configuration. 
+This positioning aligns body origin closer to IMU sensor, 
+making IMU yaw rate a more accurate approximation of true yaw rate.
 
 In this body frame definition, distance traveled at time $t$, 
 denoted as $d_t$, and the distance difference $\delta d$ used in motion model, 
@@ -263,17 +257,6 @@ $$
 in which $FR$, $FL$, $RR$, and $RL$ represent the wheel count readings 
 from the front right, front left, rear right, and rear left wheels, respectively.
 
-\subsection{Sensor frame to Body frame}
-Based on robot configuration and body frame definition, 
-following transformations are used to convert sensor frame to body frame:
-$$
-\begin{aligned}
-    {}_{\text{body} }T_{\text{LiDAR} }
-        &=\left[ \begin{matrix}I_{3}&\left[ \begin{gathered}0.13323\\ 0\\ 0.51435\end{gathered} \right]  \\ \mathbf{0}&1\end{matrix} \right]  \\ 
-    {}_{\text{body} }T_{\text{camera} }
-        &=\left[ \begin{matrix}R_{yaw}\left( 0.021\right)  R_{pitch}\left( 0.36\right)  R_{roll}\left( 0\right)  &\left[ \begin{gathered}0.18\\ 0.005\\ 0.36\end{gathered} \right]  \\ \mathbf{0}&1\end{matrix} \right]  
-\end{aligned} 
-$$
 
 \subsection{2D-3D pose conversion}
 The 2D and 3D representation of poses often needs to be converted to each other.
@@ -288,8 +271,22 @@ $$
 \end{aligned} 
 $$
 
+
+\subsection{Sensor frame to Body frame}
+Based on robot configuration and body frame definition, 
+following transformations are used to convert sensor frame to body frame:
+$$
+\begin{aligned}
+    {}_{\text{body} }T_{\text{LiDAR} }
+        &=\left[ \begin{matrix}I_{3}&\left[ \begin{gathered}0.13323\\ 0\\ 0.51435\end{gathered} \right]  \\ \mathbf{0}&1\end{matrix} \right]  \\ 
+    {}_{\text{body} }T_{\text{camera} }
+        &=\left[ \begin{matrix}R_{yaw}\left( 0.021\right)  R_{pitch}\left( 0.36\right)  R_{roll}\left( 0\right)  &\left[ \begin{gathered}0.18\\ 0.005\\ 0.36\end{gathered} \right]  \\ \mathbf{0}&1\end{matrix} \right]  
+\end{aligned} 
+$$
+
+
 \subsection{Revise ICP in Scan Matching}
-In traditional ICP, the algorithm try to find data association for all source points.
+Standard ICP try to find data association for all source points.
 But in robot LiDAR applications, there may exists points in source set $S$, 
 which don't have truly associated points in target set $T$.
 The false nearest neighbor association on these points would
@@ -299,7 +296,7 @@ Thus I propose proportion ICP: given extra proportion parameter $\gamma \in (0,1
 only consider data association, 
 whose nearest neighbor distance is in the smaller $\gamma$ proportion of all associations.
 
-Formally, denote the nearest neighbor of $s$ as $nn(s, T) = \arg\min_{t \in T} \|s - t\|$ 
+Formally, denote the nearest neighbor of $s \in S$ as $nn(s, T) = \arg\min_{t \in T} \|s - t\|$ 
 and their distance $nd(s, T) = \min_{t \in T} \|s - t\|$.
 The threshold distance corresponding to the proportion $\gamma$ is 
 $d_{\gamma} \text{ s.t. } \left|\{s | nd(s, T) < d_{\gamma}, \forall s \in S\}\right| = \lfloor\gamma |S| \rfloor$
@@ -308,7 +305,7 @@ The proportion ICP use following revised data association and optimization objec
 $$
 \begin{aligned}
     \Delta_\gamma
-    & = \left\{\left(s, nn(s,T) \right) | nd(s,T) \le d_{thr}, \forall s\in S\right\} \\
+    & = \left\{\left(s, nn(s,T) \right) | nd(s,T) \le d_{\gamma}, \forall s\in S\right\} \\
     {}_tT_s
     & = \arg\min_{T\in SE(3)} \sum\limits_{(s,t)\in\Delta_\gamma} \|t - Ts\| \\
     {}_t\epsilon_s
@@ -338,11 +335,12 @@ which is proportional to the ICP error.
 
 \subsection{mapping}
 \subsubsection{discretized map}
-The world is discretized grid map with resolution 10 cells per meter.
+The world is discretized into grid cells with resolution 10 cells per meter.
 All points are rounded to the cell center.
 
 \subsubsection{LiDAR to occupancy}
-For every scan, the empty cells decreased odds ratio by 2, where as end point cells
+To simplify logistic regression computation,
+an empty cell decreased odds ratio of that cell by 2, where as end point cell
 increase odds ratio by 2. The occupancy probability is calculated by:
 $$
 p\left(\text{occupancy}\right) = \frac{1}{1 + \exp\left(- \text{odds ratio}\right)}
@@ -350,13 +348,13 @@ $$
 
 \subsubsection{RGBD to texture}
 Based on robot configuration,
-following intrinsic matrix and conversion function $g$ is used:
+following intrinsic matrix, conversion function $g$, optical to camera rotation, and floor hight are used in texture mapping.
 $$
 \begin{aligned}
 K&=\left[ \begin{matrix}585.05&0&241.94\\ 0&585.05&315.84\\ 0&0&1\end{matrix} \right] \\ 
 dd&=-0.00304d+3.31 \\ 
 z = g(d) &= \frac{1.03}{dd} \\
-{}_cR_o^{-1} &= \left[ \begin{matrix}0&0&1\\ -1&0&0\\ 0&-1&0\end{matrix} \right] \\
+{}_oR_c^{-1} &= \left[ \begin{matrix}0&0&1\\ -1&0&0\\ 0&-1&0\end{matrix} \right] \\
 z^* & = 0.5
 \end{aligned}
 $$
@@ -375,7 +373,7 @@ $$
 
 In practice, points with $dd > 1088$ are discarded due to 
 their close distant causing less reliable estimate.
-RGB image and D image are sampled with step 2 on both axis 
+RGBD images are sampled with step 2 on both axis 
 to reduce computation.
 
 
@@ -389,29 +387,29 @@ factor graph without loop closure constraints,
 and factor graph with loop closure constraints.
 Sub-figure \ref*{fig:omap_20_imu} to \ref*{fig:omap_20_lc1} and 
 \ref*{fig:omap_21_imu} to \ref*{fig:omap_21_lc1} show
-the occupancy map based on different trajectories.
+the occupancy map based on four different trajectories.
 Sub-figure \ref*{fig:fmap_20_imu} to \ref*{fig:fmap_20_lc1} and 
 \ref*{fig:fmap_21_imu} to \ref*{fig:fmap_21_lc1} show
-the floor texture map based on different trajectories.
+the floor texture map based on four different trajectories.
 
 Result discussion:
 \begin{itemize}
-    \item On dataset 20, 
+    \item In dataset 20, 
     the motion model has produced solid result as a starting point (Fig. \ref*{fig:omap_20_imu}). 
     Observation model, factor graph, and loop closure optimize 
-    on the basis of the motion model and improve on details: 
+    on top of the motion model and improve on details: 
     boundaries are clearer in occupancy map \ref*{fig:omap_20_lc0},
     the walls are straight and parallel in floor map \ref*{fig:fmap_20_lc1}, 
     etc.
-    \item On dataset 21,
+    \item In dataset 21,
     the motion model produced some errors in the vertical hallway area.
-    The observation model, however, stuck to some local minimal, and even made the trajectory worse.
+    The observation model, however, converged to some local minimal, and made the trajectory even worse.
     The loop closure factor graph was able to correct some errors in x coordinate, 
     but messed up the orientation, causing less reliable mapping results.
-    \item ICP algorithm is prone to trap in local minimals. 
+    \item ICP algorithm and the revised proportion ICP are prone to converge to local minimals. 
     Thus a good initial-guess translation is critical. 
     If the robot is equipped with 3D-LiDAR or using the 3d point cloud from RGBD camera, 
-    the ICP estimation could be improved by extra dimension and points.
+    the ICP estimation could be more robust with the extra dimension and points.
 \end{itemize}
 
 \begin{figure*}
@@ -575,7 +573,7 @@ Result discussion:
     \caption{dataset 21 results}
     \label{fig:dataset21}
 \end{figure*}
-\textit{Big images are at \texttt{img/}.}
+\textit{Full size images are at \texttt{img/}.}
 
 \appendix
 \subsection{ICP warm up}
@@ -643,7 +641,7 @@ This is an example of ICP stuck on local minimal and could not improve over iter
 
 \subsection{proportion ICP improvement}
 Figure \ref*{fig:icp} shows the improvement of revised proportion ICP 
-on observation model trajectory.
+on observation model trajectory compare to standard ICP.
 
 \begin{figure*}
     \begin{subfigure}{0.45\textwidth}
